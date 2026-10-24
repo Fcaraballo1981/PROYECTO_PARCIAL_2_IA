@@ -59,8 +59,9 @@
 
         <section class="form-step" data-step="2" aria-labelledby="step-two-title" hidden>
           <div class="step-heading"><span>Paso 2</span><div><h3 id="step-two-title">Subí fotografías</h3><p>Buenas imágenes ayudan a detectar detalles, pero no permiten certificar autenticidad.</p></div></div>
-          <label class="drop-zone" id="drop-zone" for="watch-photos"><span class="drop-symbol">＋</span><b>Elegí o arrastrá tus fotos</b><small>JPG o PNG · hasta 4 MB en total · máximo 8</small><input id="watch-photos" name="photos[]" type="file" accept="image/jpeg,image/png" multiple required></label>
+          <label class="drop-zone" id="drop-zone" for="watch-photos"><span class="drop-symbol">＋</span><b>Elegí o arrastrá tus fotos</b><small>JPG o PNG · las optimizamos automáticamente · máximo 8</small><input id="watch-photos" name="photos[]" type="file" accept="image/jpeg,image/png" multiple required></label>
           <p class="file-error" id="file-error" role="alert" hidden></p>
+          <p class="file-status" id="file-status" role="status" aria-live="polite" hidden></p>
           <div class="photo-guidance"><span>Frente</span><span>Fondo</span><span>Laterales</span><span>Movimiento</span><span>Caja y papeles</span></div>
           <div class="photo-preview" id="photo-preview" aria-live="polite"></div>
           <div class="step-actions"><button class="sell-secondary" type="button" data-back>Volver</button><button class="sell-primary" type="submit" id="valuation-submit">Solicitar valoración preliminar</button></div>

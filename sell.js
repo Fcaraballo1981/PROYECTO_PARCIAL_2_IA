@@ -2,7 +2,9 @@
   'use strict';
 
   const MAX_FILES = 8;
-  const MAX_FILE_BYTES = 4_000_000;
+  const MAX_SOURCE_FILE_BYTES = 25_000_000;
+  const TARGET_FILE_BYTES = 450_000;
+  const MAX_IMAGE_DIMENSION = 1600;
   const MAX_TOTAL_BYTES = 4_000_000;
   const VALID_IMAGE_TYPES = new Set(['image/jpeg', 'image/png']);
 
@@ -23,6 +25,7 @@
   const confirmBooking = document.getElementById('confirm-booking');
   const bookingError = document.getElementById('booking-error');
   const fileError = document.getElementById('file-error');
+  const fileStatus = document.getElementById('file-status');
 
   let files = [];
   let submission = null;
@@ -32,6 +35,7 @@
   let bookingBusy = false;
   let formDirty = false;
   let flowComplete = false;
+  let filesBusy = false;
 
   const escapeHtml = value => String(value ?? '').replace(
     /[&<>"']/g,
@@ -67,6 +71,96 @@
     fileError.hidden = !message;
   }
 
+  function formatBytes(bytes) {
+    if (bytes < 1_000_000) return `${Math.max(1, Math.round(bytes / 1000))} KB`;
+    return `${(bytes / 1_000_000).toFixed(1)} MB`;
+  }
+
+  function showFileStatus(message = '') {
+    fileStatus.textContent = message;
+    fileStatus.hidden = !message;
+  }
+
+  function setFilesBusy(value) {
+    filesBusy = value;
+    photoInput.disabled = value;
+    valuationSubmit.disabled = value || valuationBusy;
+    dropZone.setAttribute('aria-busy', String(value));
+  }
+
+  function sourceKey(file) {
+    return `${file.name}:${file.size}:${file.lastModified}`;
+  }
+
+  function rememberSource(file, key) {
+    Object.defineProperty(file, '_sourceKey', { value: key });
+    return file;
+  }
+
+  async function decodeImage(file) {
+    if ('createImageBitmap' in window) return createImageBitmap(file);
+    const url = URL.createObjectURL(file);
+    try {
+      const image = new Image();
+      image.src = url;
+      await image.decode();
+      return image;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  function canvasBlob(canvas, quality) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('No se pudo procesar la imagen.')), 'image/jpeg', quality);
+    });
+  }
+
+  async function optimizeImage(file) {
+    const key = sourceKey(file);
+    if (file.size <= TARGET_FILE_BYTES) return rememberSource(file, key);
+
+    const image = await decodeImage(file);
+    const originalWidth = image.naturalWidth || image.width;
+    const originalHeight = image.naturalHeight || image.height;
+    if (!originalWidth || !originalHeight) throw new Error(`${file.name} no contiene una imagen legible.`);
+
+    let ratio = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(originalWidth, originalHeight));
+    let width = Math.max(1, Math.round(originalWidth * ratio));
+    let height = Math.max(1, Math.round(originalHeight * ratio));
+    let bestBlob = null;
+
+    try {
+      for (let sizeAttempt = 0; sizeAttempt < 5; sizeAttempt += 1) {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d', { alpha: false });
+        if (!context) throw new Error('El navegador no pudo preparar la fotografía.');
+        context.fillStyle = '#fff';
+        context.fillRect(0, 0, width, height);
+        context.drawImage(image, 0, 0, width, height);
+
+        for (const quality of [.82, .72, .62, .52]) {
+          const blob = await canvasBlob(canvas, quality);
+          if (!bestBlob || blob.size < bestBlob.size) bestBlob = blob;
+          if (blob.size <= TARGET_FILE_BYTES) {
+            const name = file.name.replace(/\.(?:jpe?g|png)$/i, '') + '.jpg';
+            return rememberSource(new File([blob], name, { type: 'image/jpeg', lastModified: file.lastModified }), key);
+          }
+        }
+        width = Math.max(1, Math.round(width * .8));
+        height = Math.max(1, Math.round(height * .8));
+      }
+    } finally {
+      image.close?.();
+    }
+
+    if (!bestBlob || bestBlob.size > TARGET_FILE_BYTES) throw new Error(`${file.name} no pudo reducirse a un tamaño seguro.`);
+    const name = file.name.replace(/\.(?:jpe?g|png)$/i, '') + '.jpg';
+    return rememberSource(new File([bestBlob], name, { type: 'image/jpeg', lastModified: file.lastModified }), key);
+  }
+
   function validateStepOne() {
     let valid = true;
     const requiredFields = form.querySelectorAll('[data-step="1"] [required]');
@@ -99,7 +193,7 @@
       image.onload = () => URL.revokeObjectURL(objectUrl);
 
       const name = document.createElement('small');
-      name.textContent = file.name;
+      name.textContent = `${file.name} · ${formatBytes(file.size)}`;
 
       const remove = document.createElement('button');
       remove.type = 'button';
@@ -113,27 +207,48 @@
       item.append(image, name, remove);
       preview.append(item);
     });
+    const total = files.reduce((sum, file) => sum + file.size, 0);
+    showFileStatus(files.length ? `${files.length} ${files.length === 1 ? 'foto lista' : 'fotos listas'} · ${formatBytes(total)} en total` : '');
   }
 
-  function addFiles(fileList) {
-    for (const file of fileList) {
+  async function addFiles(fileList) {
+    const incoming = [...fileList];
+    if (!incoming.length || filesBusy) return;
+    setFilesBusy(true);
+    showFileError();
+
+    try {
+      for (const file of incoming) {
       if (files.length >= MAX_FILES) {
         showFileError(`Podés subir como máximo ${MAX_FILES} fotografías.`);
         break;
       }
-      if (!VALID_IMAGE_TYPES.has(file.type) || file.size < 1 || file.size > MAX_FILE_BYTES) {
-        showFileError(`${file.name} no es una imagen JPG o PNG válida, o supera 4 MB.`);
+      if (!VALID_IMAGE_TYPES.has(file.type) || file.size < 1 || file.size > MAX_SOURCE_FILE_BYTES) {
+        showFileError(`${file.name} no es una imagen JPG o PNG válida, o supera 25 MB.`);
         continue;
       }
-      if (files.some(item => item.name === file.name && item.size === file.size && item.lastModified === file.lastModified)) continue;
-      if (files.reduce((total, item) => total + item.size, 0) + file.size > MAX_TOTAL_BYTES) {
+      const key = sourceKey(file);
+      if (files.some(item => item._sourceKey === key || sourceKey(item) === key)) continue;
+
+      showFileStatus(`Optimizando ${file.name}…`);
+      let optimized;
+      try {
+        optimized = await optimizeImage(file);
+      } catch (error) {
+        showFileError(error.message || `No se pudo preparar ${file.name}.`);
+        continue;
+      }
+      if (files.reduce((total, item) => total + item.size, 0) + optimized.size > MAX_TOTAL_BYTES) {
         showFileError('El conjunto de fotografías no puede superar 4 MB.');
         break;
       }
-      files.push(file);
+      files.push(optimized);
+      renderFiles();
+      }
+    } finally {
+      setFilesBusy(false);
+      renderFiles();
     }
-    if (files.length) showFileError();
-    renderFiles();
   }
 
   function renderList(title, items) {
@@ -161,7 +276,7 @@
 
   async function submitValuation(event) {
     event.preventDefault();
-    if (valuationBusy) return;
+    if (valuationBusy || filesBusy) return;
     if (!validateStepOne()) {
       goToStep(1);
       return;
@@ -358,9 +473,10 @@
   form.addEventListener('change', () => { formDirty = true; });
   form.addEventListener('submit', submitValuation);
 
-  photoInput.addEventListener('change', () => {
-    addFiles(photoInput.files);
+  photoInput.addEventListener('change', async () => {
+    const selected = [...photoInput.files];
     photoInput.value = '';
+    await addFiles(selected);
   });
   ['dragenter', 'dragover'].forEach(name => dropZone.addEventListener(name, event => {
     event.preventDefault();
@@ -370,7 +486,7 @@
     event.preventDefault();
     dropZone.classList.remove('dragging');
   }));
-  dropZone.addEventListener('drop', event => addFiles(event.dataTransfer.files));
+  dropZone.addEventListener('drop', async event => addFiles(event.dataTransfer.files));
 
   bookingButton.addEventListener('click', async () => {
     goToStep(4);

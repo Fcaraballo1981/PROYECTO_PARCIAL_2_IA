@@ -59,7 +59,7 @@ Las fotografías se descargaron de Wikimedia Commons y se alojan en `assets/`. S
 - Página pública en `vende-tu-reloj.html`, vinculada desde el menú principal.
 - Flujo de cuatro pasos con regreso sin pérdida de datos.
 - Validación cliente/servidor y consentimiento de tratamiento de datos.
-- Entre 1 y 8 imágenes JPG o PNG; máximo 4 MB en conjunto (límite compatible con Vercel Functions).
+- Entre 1 y 8 imágenes JPG o PNG de hasta 25 MB de origen; el navegador las redimensiona y comprime automáticamente para mantener el envío por debajo del límite de Vercel Functions.
 - Análisis multimodal con Gemini cuando hay credenciales.
 - La evaluación remota describe únicamente detalles visibles e inconsistencias posibles; no estima precios ni certifica autenticidad.
 - Agenda en `America/Montevideo`, configurada de lunes a viernes de 09:00 a 17:00, con bloqueo transaccional y códigos de reserva.
