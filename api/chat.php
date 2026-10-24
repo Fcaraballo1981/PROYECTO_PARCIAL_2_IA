@@ -21,31 +21,12 @@ function respond(int $status, array $body, array $headers = []): never
     exit;
 }
 
-function sameOriginRequest(): bool
-{
-    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-    if ($origin === '') {
-        return true;
-    }
-    $parsed = parse_url($origin);
-    if (!is_array($parsed) || empty($parsed['host'])) {
-        return false;
-    }
-    $requestHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
-    $originHost = strtolower((string)$parsed['host']);
-    if (isset($parsed['port'])) {
-        $originHost .= ':' . $parsed['port'];
-    }
-    $requestScheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    return hash_equals($requestHost, $originHost) && strtolower((string)($parsed['scheme'] ?? '')) === $requestScheme;
-}
-
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     header('Allow: POST');
     respond(405, ['error' => 'Método no permitido.', 'code' => 'method_not_allowed']);
 }
 
-if (!sameOriginRequest()) {
+if (!sameOrigin()) {
     respond(403, ['error' => 'Solicitud no permitida.', 'code' => 'forbidden']);
 }
 
@@ -95,14 +76,7 @@ if (!function_exists('curl_init')) {
     respond(503, ['error' => 'El servidor no tiene disponible la conexión segura requerida.', 'code' => 'unavailable']);
 }
 
-session_name('gabinete_chat');
-session_set_cookie_params([
-    'httponly' => true,
-    'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
-    'samesite' => 'Lax',
-    'path' => '/',
-]);
-session_start();
+startSecureSession('gabinete_chat', 'Lax');
 $now = time();
 $recentRequests = array_values(array_filter($_SESSION['chat_requests'] ?? [], static fn($time) => is_int($time) && $time > $now - 60));
 if (count($recentRequests) >= 20) {

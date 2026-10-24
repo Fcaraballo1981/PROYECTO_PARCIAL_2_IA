@@ -33,8 +33,9 @@ function loadDotEnv(string $path): void {
 loadDotEnv(dirname(__DIR__) . DIRECTORY_SEPARATOR . '.env');
 
 const APP_TIMEZONE = 'America/Montevideo';
-const MAX_IMAGE_BYTES = 6291456;
-const MAX_TOTAL_IMAGE_BYTES = 25165824;
+// Vercel Functions accept request bodies up to 4.5 MB, including multipart overhead.
+const MAX_IMAGE_BYTES = 4000000;
+const MAX_TOTAL_IMAGE_BYTES = 4000000;
 const MAX_IMAGES = 8;
 
 date_default_timezone_set(APP_TIMEZONE);
@@ -54,8 +55,14 @@ function sameOrigin(): bool {
     $parts = parse_url($origin);
     if (!is_array($parts) || empty($parts['host'])) return false;
     $originHost = strtolower($parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : ''));
-    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $scheme = requestIsHttps() ? 'https' : 'http';
     return hash_equals(strtolower($_SERVER['HTTP_HOST'] ?? ''), $originHost) && strtolower($parts['scheme'] ?? '') === $scheme;
+}
+
+function requestIsHttps(): bool {
+    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') return true;
+    $forwarded = strtolower(trim(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))[0]));
+    return $forwarded === 'https';
 }
 
 function requireMethod(string $method): void {
@@ -69,19 +76,60 @@ function requireMethod(string $method): void {
 function database(): PDO {
     static $pdo;
     if ($pdo instanceof PDO) return $pdo;
-    if (!extension_loaded('pdo_sqlite')) jsonResponse(503, ['error' => 'El módulo necesita la extensión pdo_sqlite de PHP.', 'code' => 'database_configuration']);
-    $directory = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'var';
-    if (!is_dir($directory) && !mkdir($directory, 0770, true) && !is_dir($directory)) jsonResponse(500, ['error' => 'No se pudo preparar el almacenamiento.', 'code' => 'storage']);
-    $pdo = new PDO('sqlite:' . $directory . DIRECTORY_SEPARATOR . 'gabinete.sqlite', null, null, [
+
+    $databaseUrl = trim((string)(getenv('DATABASE_URL') ?: getenv('POSTGRES_URL') ?: ''));
+    $options = [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES => false,
-    ]);
-    $pdo->exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
-    $migration = file_get_contents(dirname(__DIR__) . '/migrations/001_sell_module.sql');
+    ];
+
+    if ($databaseUrl !== '') {
+        if (!extension_loaded('pdo_pgsql')) jsonResponse(503, ['error' => 'El servidor no tiene habilitada la extensión pdo_pgsql.', 'code' => 'database_configuration']);
+        $parts = parse_url($databaseUrl);
+        if (!is_array($parts) || !isset($parts['host'], $parts['path'], $parts['user'])) {
+            jsonResponse(503, ['error' => 'DATABASE_URL no tiene un formato válido.', 'code' => 'database_configuration']);
+        }
+        parse_str($parts['query'] ?? '', $query);
+        $sslMode = preg_replace('/[^a-z-]/', '', (string)($query['sslmode'] ?? 'require')) ?: 'require';
+        $dsn = sprintf(
+            'pgsql:host=%s;port=%d;dbname=%s;sslmode=%s',
+            $parts['host'],
+            (int)($parts['port'] ?? 5432),
+            ltrim($parts['path'], '/'),
+            $sslMode
+        );
+        $pdo = new PDO($dsn, rawurldecode($parts['user']), rawurldecode($parts['pass'] ?? ''), $options);
+        $migrationPath = dirname(__DIR__) . '/migrations/001_sell_module_postgres.sql';
+    } else {
+        if (!extension_loaded('pdo_sqlite')) jsonResponse(503, ['error' => 'El módulo necesita la extensión pdo_sqlite de PHP.', 'code' => 'database_configuration']);
+        $directory = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'var';
+        if (!is_dir($directory) && !mkdir($directory, 0770, true) && !is_dir($directory)) jsonResponse(500, ['error' => 'No se pudo preparar el almacenamiento.', 'code' => 'storage']);
+        $pdo = new PDO('sqlite:' . $directory . DIRECTORY_SEPARATOR . 'gabinete.sqlite', null, null, $options);
+        $pdo->exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
+        $migrationPath = dirname(__DIR__) . '/migrations/001_sell_module.sql';
+    }
+
+    $migration = file_get_contents($migrationPath);
     if ($migration === false) throw new RuntimeException('No se encontró la migración del módulo.');
     $pdo->exec($migration);
     return $pdo;
+}
+
+function databaseDriver(): string {
+    return (string)database()->getAttribute(PDO::ATTR_DRIVER_NAME);
+}
+
+function insertAndGetId(string $sql, array $values): int {
+    $pdo = database();
+    if (databaseDriver() === 'pgsql') {
+        $statement = $pdo->prepare(rtrim($sql, " \t\n\r\0\x0B;") . ' RETURNING id');
+        $statement->execute($values);
+        return (int)$statement->fetchColumn();
+    }
+    $statement = $pdo->prepare($sql);
+    $statement->execute($values);
+    return (int)$pdo->lastInsertId();
 }
 
 function nowIso(): string { return (new DateTimeImmutable('now', new DateTimeZone(APP_TIMEZONE)))->format(DateTimeInterface::ATOM); }
@@ -98,10 +146,15 @@ function requestJson(): array {
     if (!is_array($data)) jsonResponse(400, ['error' => 'La solicitud no es válida.', 'code' => 'invalid_request']);
     return $data;
 }
-function startSecureSession(): void {
+function startSecureSession(string $name = 'gabinete_admin', string $sameSite = 'Strict'): void {
     if (session_status() === PHP_SESSION_ACTIVE) return;
-    session_name('gabinete_admin');
-    session_set_cookie_params(['httponly'=>true,'secure'=>(!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),'samesite'=>'Strict','path'=>'/']);
+    static $handlerConfigured = false;
+    if (!$handlerConfigured) {
+        session_set_save_handler(new DatabaseSessionHandler(), true);
+        $handlerConfigured = true;
+    }
+    session_name($name);
+    session_set_cookie_params(['httponly'=>true,'secure'=>requestIsHttps(),'samesite'=>$sameSite,'path'=>'/']);
     session_start();
 }
 function releaseSession(): void {
@@ -125,4 +178,31 @@ function rateLimit(string $key, int $limit, int $seconds): void {
     $bucket = array_values(array_filter($_SESSION['rate'][$key] ?? [], fn($v) => is_int($v) && $v > $now - $seconds));
     if (count($bucket) >= $limit) jsonResponse(429, ['error'=>'Recibimos varias solicitudes seguidas. Esperá un momento.','code'=>'rate_limit']);
     $bucket[] = $now; $_SESSION['rate'][$key] = $bucket;
+}
+
+final class DatabaseSessionHandler implements SessionHandlerInterface {
+    public function open(string $path, string $name): bool { return true; }
+    public function close(): bool { return true; }
+    public function read(string $id): string|false {
+        $statement = database()->prepare('SELECT data FROM app_sessions WHERE id = ?');
+        $statement->execute([$id]);
+        $data = $statement->fetchColumn();
+        return $data === false ? '' : (string)$data;
+    }
+    public function write(string $id, string $data): bool {
+        $statement = database()->prepare(
+            'INSERT INTO app_sessions(id, data, last_activity) VALUES(?, ?, ?)
+             ON CONFLICT (id) DO UPDATE SET data = excluded.data, last_activity = excluded.last_activity'
+        );
+        return $statement->execute([$id, $data, time()]);
+    }
+    public function destroy(string $id): bool {
+        $statement = database()->prepare('DELETE FROM app_sessions WHERE id = ?');
+        return $statement->execute([$id]);
+    }
+    public function gc(int $max_lifetime): int|false {
+        $statement = database()->prepare('DELETE FROM app_sessions WHERE last_activity < ?');
+        $statement->execute([time() - $max_lifetime]);
+        return $statement->rowCount();
+    }
 }

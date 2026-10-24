@@ -89,26 +89,26 @@ try {
         $event = 'actualizada';
         $detail = 'El cliente corrigió la información antes de reservar.';
     } else {
-        $pdo->prepare(
-            'INSERT INTO customers(full_name, email, phone, preferred_contact, consent_at, created_at) VALUES(?, ?, ?, ?, ?, ?)'
-        )->execute([
+        $customerId = insertAndGetId(
+            'INSERT INTO customers(full_name, email, phone, preferred_contact, consent_at, created_at) VALUES(?, ?, ?, ?, ?, ?)',
+            [
             cleanText($_POST['full_name'] ?? '', 120, true),
             $email,
             cleanText($_POST['phone'] ?? '', 40, true),
             $contact,
             $now,
             $now,
-        ]);
-        $customerId = (int)$pdo->lastInsertId();
-        $pdo->prepare(
+            ]
+        );
+        $submissionId = insertAndGetId(
             'INSERT INTO watch_submissions(public_token, customer_id, brand, model, reference, approximate_year, movement, condition_summary, running_status, has_box, has_papers, has_accessories, asking_price, notes, created_at, updated_at)
-             VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        )->execute(array_merge(
-            [$token, $customerId],
-            watchSubmissionValues($movement, $runningStatus, $yearValue, $askingPriceValue, $now),
-            [$now]
-        ));
-        $submissionId = (int)$pdo->lastInsertId();
+             VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            array_merge(
+                [$token, $customerId],
+                watchSubmissionValues($movement, $runningStatus, $yearValue, $askingPriceValue, $now),
+                [$now]
+            )
+        );
         $event = 'creada';
         $detail = 'Solicitud recibida desde la web.';
     }
@@ -117,14 +117,13 @@ try {
         'INSERT INTO watch_images(submission_id, original_name, mime_type, byte_size, image_data, created_at) VALUES(?, ?, ?, ?, ?, ?)'
     );
     foreach ($validFiles as $file) {
-        $imageStatement->execute([
-            $submissionId,
-            $file['name'],
-            $file['mime'],
-            $file['size'],
-            $file['data'],
-            $now,
-        ]);
+        $imageStatement->bindValue(1, $submissionId, PDO::PARAM_INT);
+        $imageStatement->bindValue(2, $file['name']);
+        $imageStatement->bindValue(3, $file['mime']);
+        $imageStatement->bindValue(4, $file['size'], PDO::PARAM_INT);
+        $imageStatement->bindValue(5, $file['data'], PDO::PARAM_LOB);
+        $imageStatement->bindValue(6, $now);
+        $imageStatement->execute();
     }
     $pdo->prepare(
         'INSERT INTO submission_history(submission_id, event_type, detail, created_at) VALUES(?, ?, ?, ?)'
@@ -177,7 +176,7 @@ function validateValuationImages(array $files): array
         $size = (int)$file['size'];
         $totalBytes += $size;
         if ($size < 1 || $size > MAX_IMAGE_BYTES || $totalBytes > MAX_TOTAL_IMAGE_BYTES) {
-            throw new InvalidArgumentException('Cada foto puede pesar hasta 6 MB y el conjunto hasta 24 MB.');
+            throw new InvalidArgumentException('Cada foto y el conjunto pueden pesar hasta 4 MB.');
         }
         $mime = $finfo->file($file['tmp_name']);
         if (!in_array($mime, ['image/jpeg', 'image/png'], true) || @getimagesize($file['tmp_name']) === false) {

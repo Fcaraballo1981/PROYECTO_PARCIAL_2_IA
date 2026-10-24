@@ -121,3 +121,9 @@ WHERE weekday BETWEEN 6 AND 7
   AND NOT EXISTS (SELECT 1 FROM schema_migrations WHERE name = '002_business_hours_09_17');
 
 INSERT OR IGNORE INTO schema_migrations (name) VALUES ('002_business_hours_09_17');
+
+CREATE TABLE IF NOT EXISTS app_sessions (
+  id TEXT PRIMARY KEY,
+  data TEXT NOT NULL,
+  last_activity INTEGER NOT NULL
+);

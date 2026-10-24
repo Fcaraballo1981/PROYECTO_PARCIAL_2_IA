@@ -34,7 +34,13 @@ try {
     }
 
     $pdo = database();
-    $pdo->exec('BEGIN IMMEDIATE TRANSACTION');
+    if (databaseDriver() === 'sqlite') {
+        $pdo->exec('BEGIN IMMEDIATE TRANSACTION');
+    } else {
+        $pdo->beginTransaction();
+        $lock = $pdo->prepare('SELECT pg_advisory_xact_lock(hashtext(?))');
+        $lock->execute([$local->format(DateTimeInterface::ATOM)]);
+    }
 
     $submission = $pdo->prepare('SELECT id FROM watch_submissions WHERE id = ? AND public_token = ?');
     $submission->execute([$submissionId, $token]);

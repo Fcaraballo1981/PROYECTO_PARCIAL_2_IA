@@ -2,8 +2,8 @@
   'use strict';
 
   const MAX_FILES = 8;
-  const MAX_FILE_BYTES = 6 * 1024 * 1024;
-  const MAX_TOTAL_BYTES = 24 * 1024 * 1024;
+  const MAX_FILE_BYTES = 4_000_000;
+  const MAX_TOTAL_BYTES = 4_000_000;
   const VALID_IMAGE_TYPES = new Set(['image/jpeg', 'image/png']);
 
   const form = document.getElementById('watch-sale-form');
@@ -22,6 +22,7 @@
   const slotGrid = document.getElementById('slot-grid');
   const confirmBooking = document.getElementById('confirm-booking');
   const bookingError = document.getElementById('booking-error');
+  const fileError = document.getElementById('file-error');
 
   let files = [];
   let submission = null;
@@ -29,6 +30,8 @@
   let availability = [];
   let valuationBusy = false;
   let bookingBusy = false;
+  let formDirty = false;
+  let flowComplete = false;
 
   const escapeHtml = value => String(value ?? '').replace(
     /[&<>"']/g,
@@ -52,6 +55,16 @@
     document.getElementById('sale-process').scrollIntoView({
       behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
     });
+    const heading = steps.find(step => Number(step.dataset.step) === number)?.querySelector('h3');
+    if (heading) {
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+    }
+  }
+
+  function showFileError(message = '') {
+    fileError.textContent = message;
+    fileError.hidden = !message;
   }
 
   function validateStepOne() {
@@ -81,6 +94,8 @@
       const objectUrl = URL.createObjectURL(file);
       image.src = objectUrl;
       image.alt = `Vista previa de ${file.name}`;
+      image.width = 240;
+      image.height = 240;
       image.onload = () => URL.revokeObjectURL(objectUrl);
 
       const name = document.createElement('small');
@@ -103,20 +118,21 @@
   function addFiles(fileList) {
     for (const file of fileList) {
       if (files.length >= MAX_FILES) {
-        alert(`Podés subir como máximo ${MAX_FILES} fotografías.`);
+        showFileError(`Podés subir como máximo ${MAX_FILES} fotografías.`);
         break;
       }
       if (!VALID_IMAGE_TYPES.has(file.type) || file.size < 1 || file.size > MAX_FILE_BYTES) {
-        alert(`${file.name} no es una imagen JPG o PNG válida, o supera 6 MB.`);
+        showFileError(`${file.name} no es una imagen JPG o PNG válida, o supera 4 MB.`);
         continue;
       }
       if (files.some(item => item.name === file.name && item.size === file.size && item.lastModified === file.lastModified)) continue;
       if (files.reduce((total, item) => total + item.size, 0) + file.size > MAX_TOTAL_BYTES) {
-        alert('El conjunto de fotografías no puede superar 24 MB.');
+        showFileError('El conjunto de fotografías no puede superar 4 MB.');
         break;
       }
       files.push(file);
     }
+    if (files.length) showFileError();
     renderFiles();
   }
 
@@ -151,7 +167,9 @@
       return;
     }
     if (!files.length) {
-      alert('Subí al menos una fotografía del reloj.');
+      showFileError('Subí al menos una fotografía del reloj para continuar.');
+      goToStep(2);
+      photoInput.focus();
       return;
     }
 
@@ -223,16 +241,21 @@
     confirmBooking.disabled = true;
     slotGrid.replaceChildren();
 
-    (day?.slots || []).forEach(slot => {
+    (day?.slots || []).forEach((slot, index) => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'slot-button';
       button.setAttribute('role', 'radio');
       button.setAttribute('aria-checked', 'false');
+      button.tabIndex = index === 0 ? 0 : -1;
       button.textContent = slot.label;
       button.addEventListener('click', () => {
-        slotGrid.querySelectorAll('button').forEach(item => item.setAttribute('aria-checked', 'false'));
+        slotGrid.querySelectorAll('button').forEach(item => {
+          item.setAttribute('aria-checked', 'false');
+          item.tabIndex = -1;
+        });
         button.setAttribute('aria-checked', 'true');
+        button.tabIndex = 0;
         selectedSlot = slot.value;
         confirmBooking.disabled = false;
       });
@@ -270,6 +293,7 @@
       const confirmation = document.getElementById('booking-confirmation');
       confirmation.innerHTML = `<h4>Solicitud de cita guardada</h4><p>Te esperamos el <b>${escapeHtml(when)}</b> (hora de Montevideo).</p><span class="booking-code">${escapeHtml(result.booking.code)}</span><p>Llevá el reloj, caja, documentación, accesorios y un documento de identidad. La cita queda solicitada; el equipo podrá contactarte para confirmarla.</p>`;
       confirmation.hidden = false;
+      flowComplete = true;
       document.querySelector('.booking-layout').hidden = true;
       confirmBooking.hidden = true;
     } catch (error) {
@@ -327,9 +351,11 @@
   }));
   document.querySelector('[data-edit]').addEventListener('click', () => goToStep(1));
   form.addEventListener('input', event => {
+    formDirty = true;
     event.target.removeAttribute('aria-invalid');
     event.target.closest('.consent')?.removeAttribute('aria-invalid');
   });
+  form.addEventListener('change', () => { formDirty = true; });
   form.addEventListener('submit', submitValuation);
 
   photoInput.addEventListener('change', () => {
@@ -351,7 +377,24 @@
     await loadAvailability();
   });
   bookingDate.addEventListener('change', renderSlots);
+  slotGrid.addEventListener('keydown', event => {
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+    const buttons = [...slotGrid.querySelectorAll('button')];
+    const current = buttons.indexOf(document.activeElement);
+    if (current < 0 || !buttons.length) return;
+    event.preventDefault();
+    const backwards = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
+    const next = buttons[(current + (backwards ? -1 : 1) + buttons.length) % buttons.length];
+    next.click();
+    next.focus();
+  });
   confirmBooking.addEventListener('click', saveBooking);
+
+  window.addEventListener('beforeunload', event => {
+    if (!formDirty || flowComplete) return;
+    event.preventDefault();
+    event.returnValue = '';
+  });
 
   const menu = document.getElementById('menu-toggle');
   menu?.addEventListener('click', () => {
@@ -360,6 +403,11 @@
     menu.setAttribute('aria-label', open ? 'Abrir menú' : 'Cerrar menú');
     document.getElementById('main-nav')?.classList.toggle('is-open', !open);
   });
+  document.querySelectorAll('#main-nav a').forEach(link => link.addEventListener('click', () => {
+    menu?.setAttribute('aria-expanded', 'false');
+    menu?.setAttribute('aria-label', 'Abrir menú');
+    document.getElementById('main-nav')?.classList.remove('is-open');
+  }));
 
   startLiveWatch();
 })();

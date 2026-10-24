@@ -49,7 +49,7 @@ Las fotografías se descargaron de Wikimedia Commons y se alojan en `assets/`. S
 - Página pública en `vende-tu-reloj.html`, vinculada desde el menú principal.
 - Flujo de cuatro pasos con regreso sin pérdida de datos.
 - Validación cliente/servidor y consentimiento de tratamiento de datos.
-- Entre 1 y 8 imágenes JPG o PNG; máximo 6 MB cada una y 24 MB en conjunto.
+- Entre 1 y 8 imágenes JPG o PNG; máximo 4 MB en conjunto (límite compatible con Vercel Functions).
 - Análisis multimodal con Gemini cuando hay credenciales.
 - La evaluación remota describe únicamente detalles visibles e inconsistencias posibles; no estima precios ni certifica autenticidad.
 - Agenda en `America/Montevideo`, configurada de lunes a viernes de 09:00 a 17:00, con bloqueo transaccional y códigos de reserva.
@@ -82,7 +82,20 @@ php -d extension=pdo_sqlite -d extension=sqlite3 -r "require 'api/_bootstrap.php
 - Transacción `BEGIN IMMEDIATE`, restricciones únicas y nueva comprobación de disponibilidad para evitar doble reserva.
 - Historial de cambios y consentimiento fechado.
 
-El catálogo público se define en `app.js`; las solicitudes de compra y de venta usan persistencia SQLite en el servidor.
+El catálogo público se define en `app.js`; las solicitudes usan SQLite en desarrollo local y PostgreSQL cuando se configura `DATABASE_URL` (requerido en Vercel).
+
+## Despliegue en Vercel
+
+El repositorio incluye `vercel.json` para servir los archivos estáticos y ejecutar `api/*.php` con el runtime comunitario de PHP. En Vercel no configures `start-local.ps1` como **Build Command**: ese script es únicamente para Windows local y la configuración del repositorio omite el paso de build.
+
+Para disponer de almacenamiento persistente:
+
+1. En el proyecto de Vercel, abrí **Storage / Marketplace** y conectá una base PostgreSQL de Neon.
+2. Confirmá que la integración haya creado `DATABASE_URL` para Production, Preview y Development según corresponda.
+3. En **Settings → Environment Variables**, agregá `GEMINI_API_KEY` y, si usarás el panel, `ADMIN_USERNAME` y `ADMIN_PASSWORD` (mínimo 12 caracteres).
+4. Volvé a desplegar el último commit. Las tablas de PostgreSQL se crean automáticamente en el primer acceso a una API.
+
+Sin `DATABASE_URL`, el proyecto usa SQLite localmente. SQLite no debe usarse en Vercel porque el sistema de archivos de sus Functions no es persistente.
 
 ## Comprobaciones
 

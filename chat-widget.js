@@ -164,6 +164,7 @@
     launcher.hidden = false;
     launcher.setAttribute('aria-expanded', 'false');
     historyPanel.hidden = true;
+    $('assistant-history-toggle').setAttribute('aria-expanded', 'false');
     launcher.focus();
   }
 
@@ -172,6 +173,7 @@
   $('assistant-history-toggle').addEventListener('click', () => {
     renderHistory();
     historyPanel.hidden = !historyPanel.hidden;
+    $('assistant-history-toggle').setAttribute('aria-expanded', String(!historyPanel.hidden));
   });
   $('assistant-new').addEventListener('click', () => {
     if (busy) {
@@ -182,9 +184,16 @@
     state.conversations.unshift(fresh);
     state.currentId = fresh.id;
     historyPanel.hidden = true;
+    $('assistant-history-toggle').setAttribute('aria-expanded', 'false');
     persist();
     renderMessages();
     input.focus();
+  });
+  panel.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closePanel();
+    }
   });
 
   input.addEventListener('input', () => {
@@ -250,9 +259,9 @@
       }
       const failureCode = error.code || (error instanceof TypeError ? 'server' : '');
       const fallback = failureCode === 'configuration'
-          ? 'Falta configurar la clave de Gemini. Cerrá el servidor y volvé a iniciarlo con .\\start-local.ps1 desde PowerShell.'
+          ? 'Falta configurar GEMINI_API_KEY en el servidor. Agregala en las variables de entorno y volvé a desplegar.'
         : failureCode === 'server'
-          ? 'No encontramos el backend PHP. Iniciá el sitio con .\\start-local.ps1 y abrilo en http://127.0.0.1:8000; no uses index.html con doble clic.'
+          ? 'No encontramos el backend PHP. Revisá la configuración del despliegue o iniciá el servidor local antes de abrir el sitio.'
           : failureCode === 'credentials'
             ? 'Gemini rechazó la clave configurada. Revisá que GEMINI_API_KEY sea una clave válida de Google AI Studio.'
             : failureCode === 'quota'

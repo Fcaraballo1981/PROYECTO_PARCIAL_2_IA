@@ -34,8 +34,13 @@ $statement->execute([$imageId]);
 $image = $statement->fetch();
 if (!$image) jsonResponse(404, ['error' => 'Imagen no encontrada.']);
 
+$imageData = is_resource($image['image_data'])
+    ? stream_get_contents($image['image_data'])
+    : (string)$image['image_data'];
+if ($imageData === false) jsonResponse(500, ['error' => 'No se pudo leer la imagen.']);
+
 header('Content-Type: ' . $image['mime_type']);
-header('Content-Length: ' . strlen($image['image_data']));
+header('Content-Length: ' . strlen($imageData));
 header('Cache-Control: private, max-age=300');
 header('X-Content-Type-Options: nosniff');
-echo $image['image_data'];
+echo $imageData;

@@ -67,7 +67,7 @@
     const trigger = document.activeElement;
     backdrop.className = 'modal-backdrop purchase-backdrop';
     backdrop.innerHTML = `
-      <form class="modal purchase-modal" aria-labelledby="purchase-title">
+      <form class="modal purchase-modal" role="dialog" aria-modal="true" aria-labelledby="purchase-title">
         <button type="button" class="modal-close" aria-label="Cerrar">×</button>
         <p class="eyebrow">SOLICITUD DE COMPRA</p>
         <h2 id="purchase-title">${escapeHtml(product.brand)} ${escapeHtml(product.name)}</h2>

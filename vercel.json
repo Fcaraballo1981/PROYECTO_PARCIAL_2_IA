@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": null,
+  "functions": {
+    "api/*.php": {
+      "runtime": "vercel-php@0.9.0",
+      "maxDuration": 60
+    }
+  },
+  "routes": [
+    { "src": "/(?:README\\.md|start-local\\.ps1|router\\.php|\\.htaccess)", "status": 404 },
+    { "src": "/(?:migrations|var)(?:/.*)?", "status": 404 },
+    { "src": "/api/(?:_.*|cacert\\.pem)", "status": 404 },
+    { "handle": "filesystem" }
+  ]
+}
