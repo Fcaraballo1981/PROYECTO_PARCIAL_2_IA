@@ -4,7 +4,7 @@ Sitio adaptable para compra y venta de relojes, con catálogo, solicitudes de co
 
 ## Puesta en marcha local
 
-Requiere PHP 8.1 o posterior con cURL, JSON, mbstring, session, fileinfo y las extensiones SQLite incluidas en la distribución de PHP.
+Requiere PHP 8.1 o posterior con cURL, JSON, mbstring, session, fileinfo y PDO SQLite. En Vercel se utiliza además PDO PostgreSQL mediante el runtime configurado en `vercel.json`.
 
 ```powershell
 .\start-local.ps1
@@ -26,13 +26,16 @@ La configuración local se guarda en `.env`, en la raíz del proyecto. El archiv
 
 - `GEMINI_API_KEY`: clave creada en [Google AI Studio](https://aistudio.google.com/app/apikey). Se usa únicamente en PHP.
 - `GEMINI_MODEL`: opcional; por defecto `gemini-3.5-flash-lite`.
+- `DATABASE_URL` o `POSTGRES_URL`: conexión PostgreSQL para producción. Si ambas faltan, el entorno local usa SQLite.
+- `ADMIN_USERNAME` y `ADMIN_PASSWORD`: habilitan la API administrativa; la contraseña debe tener al menos 12 caracteres. El repositorio no incluye actualmente una interfaz web para administrarla.
+
 No guardes secretos en JavaScript, archivos públicos ni el repositorio.
 
 ## Solicitudes de compra
 
 - Cada reloj del catálogo permite iniciar una solicitud de compra.
 - El servidor valida el producto y los datos de contacto, y devuelve un código `COMPRA-…`.
-- Las solicitudes quedan guardadas en la tabla SQLite `purchase_inquiries`.
+- Las solicitudes quedan guardadas en `purchase_inquiries`, dentro de SQLite local o PostgreSQL en producción.
 - La solicitud no procesa pagos ni confirma por sí sola la disponibilidad definitiva.
 
 ## Créditos fotográficos del catálogo
@@ -43,6 +46,13 @@ Las fotografías se descargaron de Wikimedia Commons y se alojan en `assets/`. S
 - Omega Seamaster: Rama, CC BY-SA 2.0 FR.
 - Cartier Santos: Pittigrilli, CC BY-SA 4.0.
 - TAG Heuer Monaco: EMore98, CC BY-SA 4.0.
+- Seiko SKX007: Ashley Pomeroy, CC BY-SA 4.0.
+- Seiko 5 Sports GMT SSK003: Padgriffin, CC BY-SA 4.0.
+- Citizen Aqualand Promaster JP1010: Pittigrilli, CC BY-SA 4.0.
+- Citizen Eco-Drive CB0021: Ocrho, CC0.
+- Orient Bambino ER24005W: MIKI Yoshihito, CC BY 2.0.
+- Casio F-91W: Ashley Pomeroy, CC BY-SA 3.0.
+- Casio G-Shock DW-5600E: Pittigrilli, dominio público.
 
 ## Módulo «Vendé tu reloj»
 
@@ -58,10 +68,10 @@ No se encontró un servicio de correo en el proyecto original, por lo que no se 
 
 ## Base de datos y migraciones
 
-El proyecto original usaba `localStorage` y no incluía base de datos. El nuevo módulo usa SQLite, disponible de forma embebida en PHP:
+El proyecto original usaba `localStorage` y no incluía base de datos. El módulo actual admite dos motores:
 
-- Migración: `migrations/001_sell_module.sql`.
-- Archivo generado: `var/gabinete.sqlite` (bloqueado por el router local y las reglas `.htaccess` para Apache).
+- Desarrollo local: SQLite mediante `migrations/001_sell_module.sql`; genera `var/gabinete.sqlite`.
+- Vercel: PostgreSQL mediante `migrations/001_sell_module_postgres.sql` y `DATABASE_URL` o `POSTGRES_URL`.
 - La migración se ejecuta automáticamente y es idempotente al acceder por primera vez a una API del módulo.
 - Las fotografías se almacenan como BLOB y se entregan sólo mediante `api/image.php`, con autorización o token privado de solicitud.
 
@@ -78,11 +88,11 @@ php -d extension=pdo_sqlite -d extension=sqlite3 -r "require 'api/_bootstrap.php
 - Comprobación de mismo origen y límites por sesión.
 - Consultas preparadas, validación de extensión real, MIME y contenido de imágenes.
 - Clave de Gemini sólo en entorno de servidor.
-- El acceso administrativo heredado queda deshabilitado si no se configuran `ADMIN_USERNAME` y una `ADMIN_PASSWORD` de al menos 12 caracteres; no existen credenciales predeterminadas.
-- Transacción `BEGIN IMMEDIATE`, restricciones únicas y nueva comprobación de disponibilidad para evitar doble reserva.
+- La API administrativa queda deshabilitada si no se configuran `ADMIN_USERNAME` y una `ADMIN_PASSWORD` de al menos 12 caracteres; no existen credenciales predeterminadas ni una interfaz administrativa incluida.
+- Bloqueo transaccional adaptado a cada motor, restricciones únicas y nueva comprobación de disponibilidad para evitar doble reserva.
 - Historial de cambios y consentimiento fechado.
 
-El catálogo público se define en `app.js`; las solicitudes usan SQLite en desarrollo local y PostgreSQL cuando se configura `DATABASE_URL` (requerido en Vercel).
+El catálogo público se define en `app.js`; las solicitudes usan SQLite en desarrollo local y PostgreSQL cuando se configura `DATABASE_URL` o `POSTGRES_URL` (requerido en Vercel).
 
 ## Despliegue en Vercel
 
@@ -91,11 +101,11 @@ El repositorio incluye `vercel.json` para servir los archivos estáticos y ejecu
 Para disponer de almacenamiento persistente:
 
 1. En el proyecto de Vercel, abrí **Storage / Marketplace** y conectá una base PostgreSQL de Neon.
-2. Confirmá que la integración haya creado `DATABASE_URL` para Production, Preview y Development según corresponda.
-3. En **Settings → Environment Variables**, agregá `GEMINI_API_KEY` y, si usarás el panel, `ADMIN_USERNAME` y `ADMIN_PASSWORD` (mínimo 12 caracteres).
+2. Confirmá que la integración haya creado `DATABASE_URL` o `POSTGRES_URL` para Production, Preview y Development según corresponda.
+3. En **Settings → Environment Variables**, agregá `GEMINI_API_KEY` y, si usarás la API administrativa, `ADMIN_USERNAME` y `ADMIN_PASSWORD` (mínimo 12 caracteres).
 4. Volvé a desplegar el último commit. Las tablas de PostgreSQL se crean automáticamente en el primer acceso a una API.
 
-Sin `DATABASE_URL`, el proyecto usa SQLite localmente. SQLite no debe usarse en Vercel porque el sistema de archivos de sus Functions no es persistente.
+Sin una URL PostgreSQL, el proyecto usa SQLite localmente. En Vercel, el chat puede funcionar con una sesión temporal en `/tmp`, pero compras, valoraciones, imágenes y citas requieren PostgreSQL porque el sistema de archivos de las Functions no es persistente.
 
 ## Comprobaciones
 
@@ -103,6 +113,7 @@ Sin `DATABASE_URL`, el proyecto usa SQLite localmente. SQLite no debe usarse en 
 Get-ChildItem api -Filter *.php | ForEach-Object { php -l $_.FullName }
 node --check app.js
 node --check sell.js
+node --check chat-widget.js
 ```
 
-Para producción, configurá HTTPS, copias de seguridad de `var/gabinete.sqlite`, política de conservación/eliminación de datos y permisos de escritura mínimos para el usuario de PHP.
+Para producción, configurá HTTPS, copias de seguridad de PostgreSQL, una política de conservación/eliminación de datos y credenciales con privilegios mínimos. En desarrollo local, respaldá `var/gabinete.sqlite` si contiene información que necesites conservar.
