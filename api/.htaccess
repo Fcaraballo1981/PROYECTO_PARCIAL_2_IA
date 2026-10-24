@@ -1,0 +1,3 @@
+<FilesMatch "^(?:_.*\.php|cacert\.pem)$">
+    Require all denied
+</FilesMatch>

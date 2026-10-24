@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="es-UY">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#041b12">
+  <meta name="description" content="Ofrecé tu reloj a El Gabinete del Relojero y coordiná una evaluación presencial en Montevideo.">
+  <title>Vendé tu reloj — El Gabinete del Relojero</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="sell.css">
+</head>
+<body>
+  <a class="skip-link" href="#sale-process">Saltar al formulario</a>
+  <div class="announcement">MONTEVIDEO · COMPRA RESPONSABLE · EVALUACIÓN PRESENCIAL</div>
+  <header class="site-header sell-header">
+    <a class="brand" href="index.html#inicio" aria-label="El Gabinete del Relojero, inicio"><img class="brand-logo" src="assets/logo.png" alt="El Gabinete del Relojero" width="1536" height="1024"></a>
+    <button class="menu-toggle" id="menu-toggle" type="button" aria-expanded="false" aria-controls="main-nav" aria-label="Abrir menú">☰</button>
+    <nav class="main-nav" id="main-nav" aria-label="Navegación principal"><a href="index.html#inicio">Inicio</a><a href="index.html#nosotros">Nosotros</a><a href="index.html#relojes">Relojes</a><a href="vende-tu-reloj.html" aria-current="page">Vendé tu reloj</a></nav>
+  </header>
+
+  <main>
+    <section class="sell-hero">
+      <div class="sell-hero-copy"><p class="sell-kicker">Una pieza merece una mirada experta</p><h1>Tu reloj tiene una historia.<br>Nosotros sabemos valorarla.</h1><p>Ofrecenos tu reloj, recibí una valoración preliminar y agendá una visita con nuestros especialistas.</p><a class="button button-dark" href="#sale-process">Quiero vender mi reloj</a></div>
+      <div class="sell-hero-object" id="sale-live-watch" role="img" aria-label="Hora actual en Montevideo"><span class="sell-clock-number sell-clock-twelve">12</span><span class="sell-clock-number sell-clock-three">3</span><span class="sell-clock-number sell-clock-six">6</span><span class="sell-clock-number sell-clock-nine">9</span><span class="hand sell-hour-hand" aria-hidden="true"></span><span class="hand sell-minute-hand" aria-hidden="true"></span><span class="hand sell-second-hand" aria-hidden="true"></span><span class="pivot" aria-hidden="true"></span><span class="dial-note">MONTEVIDEO</span></div>
+    </section>
+
+    <section class="sale-process" id="sale-process" aria-labelledby="form-title">
+      <header class="process-intro"><p class="eyebrow">EVALUACIÓN EN CUATRO PASOS</p><h2 id="form-title">Empecemos por conocer la pieza.</h2><p>La información queda sujeta a revisión de nuestro equipo y no constituye una oferta de compra.</p></header>
+      <ol class="progress" id="progress" aria-label="Progreso del formulario">
+        <li class="active" aria-current="step"><b>1</b><span>Tu reloj</span></li><li><b>2</b><span>Fotografías</span></li><li><b>3</b><span>Valoración</span></li><li><b>4</b><span>Visita</span></li>
+      </ol>
+
+      <form id="watch-sale-form" enctype="multipart/form-data" novalidate>
+        <input class="trap" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <section class="form-step active" data-step="1" aria-labelledby="step-one-title">
+          <div class="step-heading"><span>Paso 1</span><div><h3 id="step-one-title">Contanos sobre tu reloj</h3><p>Primero necesitamos saber quién sos y qué pieza querés ofrecernos.</p></div></div>
+          <fieldset><legend>Datos personales</legend><div class="sell-fields">
+            <label class="wide">Nombre y apellido <input name="full_name" autocomplete="name" maxlength="120" required></label>
+            <label>Correo electrónico <input name="email" type="email" autocomplete="email" maxlength="180" required></label>
+            <label>Teléfono de contacto <input name="phone" type="tel" autocomplete="tel" maxlength="40" required></label>
+            <label>Medio preferido <select name="preferred_contact" required><option value="">Elegí una opción</option><option value="whatsapp">WhatsApp</option><option value="telefono">Teléfono</option><option value="email">Correo electrónico</option></select></label>
+          </div></fieldset>
+          <fieldset><legend>Información de la pieza</legend><div class="sell-fields">
+            <label>Marca <input name="brand" maxlength="80" required></label><label>Modelo <input name="model" maxlength="100" required></label>
+            <label>Referencia <input name="reference" maxlength="100" placeholder="Si la conocés"></label><label>Año aproximado <input name="approximate_year" type="number" min="1800" max="2026" inputmode="numeric"></label>
+            <label>Tipo de movimiento <select name="movement" required><option value="">Elegí una opción</option><option value="automatico">Automático</option><option value="manual">Manual</option><option value="cuarzo">Cuarzo</option><option value="desconocido">No lo sé</option></select></label>
+            <label>Funcionamiento actual <select name="running_status" required><option value="">Elegí una opción</option><option>Funciona correctamente</option><option>Funciona, pero presenta fallas</option><option>No funciona</option><option>No pude comprobarlo</option></select></label>
+            <label class="wide">Estado general <textarea name="condition_summary" maxlength="500" rows="3" placeholder="Desgaste, golpes, rayas, piezas reemplazadas…" required></textarea></label>
+            <div class="wide check-cluster" role="group" aria-label="Elementos incluidos"><span>¿Qué conservás?</span><label><input type="checkbox" name="has_box"> Caja original</label><label><input type="checkbox" name="has_papers"> Documentación</label><label><input type="checkbox" name="has_accessories"> Accesorios o eslabones</label></div>
+            <label>Precio pretendido en USD <input name="asking_price" type="number" min="0" step="1" inputmode="decimal" placeholder="Opcional"></label>
+            <label class="wide">Observaciones adicionales <textarea name="notes" maxlength="1500" rows="4"></textarea></label>
+          </div></fieldset>
+          <label class="consent"><input type="checkbox" name="consent" value="yes" required><span>Autorizo a El Gabinete del Relojero a tratar estos datos y fotografías para evaluar mi solicitud y contactarme. Entiendo que puedo solicitar su eliminación.</span></label>
+          <div class="step-actions end"><button class="sell-primary" type="button" data-next>Continuar con las fotos</button></div>
+        </section>
+
+        <section class="form-step" data-step="2" aria-labelledby="step-two-title" hidden>
+          <div class="step-heading"><span>Paso 2</span><div><h3 id="step-two-title">Subí fotografías</h3><p>Buenas imágenes ayudan a detectar detalles, pero no permiten certificar autenticidad.</p></div></div>
+          <label class="drop-zone" id="drop-zone" for="watch-photos"><span class="drop-symbol">＋</span><b>Elegí o arrastrá tus fotos</b><small>JPG o PNG · hasta 6 MB por foto · máximo 8</small><input id="watch-photos" name="photos[]" type="file" accept="image/jpeg,image/png" multiple required></label>
+          <div class="photo-guidance"><span>Frente</span><span>Fondo</span><span>Laterales</span><span>Movimiento</span><span>Caja y papeles</span></div>
+          <div class="photo-preview" id="photo-preview" aria-live="polite"></div>
+          <div class="step-actions"><button class="sell-secondary" type="button" data-back>Volver</button><button class="sell-primary" type="submit" id="valuation-submit">Solicitar valoración preliminar</button></div>
+        </section>
+      </form>
+
+      <section class="form-step" data-step="3" aria-labelledby="step-three-title" hidden>
+        <div class="step-heading"><span>Paso 3</span><div><h3 id="step-three-title">Evaluación preliminar</h3><p>Gemini contrasta los datos declarados con los detalles visibles en las fotografías.</p></div></div>
+        <div id="valuation-loading" class="evaluation-loading" role="status">
+          <div class="evaluation-clock-stage" aria-hidden="true">
+            <span class="thought-dot thought-dot-one"></span><span class="thought-dot thought-dot-two"></span><span class="thought-bubble">···</span>
+            <span class="evaluation-clock-scale"><span class="clock-friend"><span class="clock-friend-crown"></span><span class="clock-friend-head"><span class="clock-friend-hour"></span><span class="clock-friend-minute"></span><span class="clock-friend-pin"></span></span><span class="clock-friend-body"></span><span class="clock-friend-arm clock-friend-arm-left"></span><span class="clock-friend-arm clock-friend-arm-right"></span><span class="clock-friend-leg clock-friend-leg-left"></span><span class="clock-friend-leg clock-friend-leg-right"></span></span></span>
+          </div>
+          <strong>El relojero está pensando…</strong>
+          <span>Analizando los detalles visibles en las fotografías.</span>
+        </div>
+        <div id="valuation-result" hidden></div>
+        <aside class="valuation-notice"><b>Importante</b><p>Esta valoración es preliminar y orientativa. El precio definitivo será determinado por nuestro técnico relojero luego de examinar presencialmente la pieza, verificar su autenticidad, funcionamiento y estado de conservación.</p></aside>
+        <div class="step-actions"><button class="sell-secondary" type="button" data-edit>Corregir información</button><button class="sell-primary" type="button" id="to-booking" disabled>Agendar una visita</button></div>
+      </section>
+
+      <section class="form-step" data-step="4" aria-labelledby="step-four-title" hidden>
+        <div class="step-heading"><span>Paso 4</span><div><h3 id="step-four-title">Agendá tu visita</h3><p>Todos los horarios corresponden a Montevideo, Uruguay.</p></div></div>
+        <div class="booking-layout"><div><label class="booking-label" for="booking-date">Fecha disponible</label><select id="booking-date"><option>Cargando fechas…</option></select></div><div><span class="booking-label">Horario</span><div class="slot-grid" id="slot-grid" role="radiogroup" aria-label="Horarios disponibles"></div></div></div>
+        <div class="booking-error" id="booking-error" role="alert"></div>
+        <div class="step-actions"><button class="sell-secondary" type="button" data-back>Volver</button><button class="sell-primary" type="button" id="confirm-booking" disabled>Confirmar solicitud de cita</button></div>
+        <div class="booking-confirmation" id="booking-confirmation" hidden></div>
+      </section>
+    </section>
+  </main>
+  <section class="watch-assistant" id="watch-assistant" data-context="sale" aria-label="Asistente virtual para vender tu reloj">
+    <div class="assistant-panel" id="assistant-panel" aria-labelledby="assistant-title" hidden>
+      <header class="assistant-header">
+        <div class="assistant-identity"><span class="clock-friend clock-friend-small" aria-hidden="true"><span class="clock-friend-crown"></span><span class="clock-friend-head"><span class="clock-friend-hour"></span><span class="clock-friend-minute"></span><span class="clock-friend-pin"></span></span><span class="clock-friend-body"></span><span class="clock-friend-arm clock-friend-arm-left"></span><span class="clock-friend-arm clock-friend-arm-right"></span><span class="clock-friend-leg clock-friend-leg-left"></span><span class="clock-friend-leg clock-friend-leg-right"></span></span><span><b id="assistant-title">Te ayudamos con tu reloj</b><small>Asistente de preevaluación · Montevideo</small></span></div>
+        <div class="assistant-tools">
+          <button class="assistant-icon-button" id="assistant-history-toggle" type="button" aria-label="Ver conversaciones anteriores" title="Conversaciones anteriores">◷</button>
+          <button class="assistant-icon-button" id="assistant-new" type="button" aria-label="Iniciar una conversación nueva" title="Nueva conversación">＋</button>
+          <button class="assistant-icon-button" id="assistant-close" type="button" aria-label="Cerrar asistente" title="Cerrar">×</button>
+        </div>
+      </header>
+      <div class="assistant-history" id="assistant-history" hidden><p>Conversaciones recientes</p><div id="assistant-history-list"></div></div>
+      <div class="assistant-messages" id="assistant-messages" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Mensajes de la conversación"></div>
+      <form class="assistant-form" id="assistant-form">
+        <label class="sr-only" for="assistant-input">Escribí tu consulta sobre la venta del reloj</label>
+        <textarea id="assistant-input" name="message" rows="1" maxlength="2000" placeholder="¿Qué necesitás saber sobre tu reloj?" required></textarea>
+        <button type="submit" id="assistant-send" aria-label="Enviar mensaje"><span aria-hidden="true">↑</span></button>
+      </form>
+      <p class="assistant-note">Orientación preliminar. La autenticidad y el valor se confirman presencialmente.</p>
+    </div>
+    <button class="assistant-launcher" id="assistant-open" type="button" aria-label="Abrir ayuda para vender" aria-expanded="false" aria-controls="assistant-panel"><span class="clock-friend" aria-hidden="true"><span class="clock-friend-crown"></span><span class="clock-friend-head"><span class="clock-friend-hour"></span><span class="clock-friend-minute"></span><span class="clock-friend-pin"></span></span><span class="clock-friend-body"></span><span class="clock-friend-arm clock-friend-arm-left"></span><span class="clock-friend-arm clock-friend-arm-right"></span><span class="clock-friend-leg clock-friend-leg-left"></span><span class="clock-friend-leg clock-friend-leg-right"></span></span><span>Ayuda para vender</span></button>
+  </section>
+  <footer class="site-footer"><a class="brand footer-brand" href="index.html"><img class="brand-logo" src="assets/logo.png" alt="El Gabinete del Relojero" width="1536" height="1024"></a><span>Evaluaciones con cita previa.</span><span>Montevideo, Uruguay · Lun–Vie 09–17 h</span></footer>
+  <script src="sell.js" defer></script>
+  <script src="chat-widget.js" defer></script>
+</body>
+</html>

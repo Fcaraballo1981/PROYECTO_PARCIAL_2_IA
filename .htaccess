@@ -1,0 +1,5 @@
+Options -Indexes
+
+<FilesMatch "^(?:\.env(?:\..*)?|README\.md|start-local\.ps1)$">
+    Require all denied
+</FilesMatch>
