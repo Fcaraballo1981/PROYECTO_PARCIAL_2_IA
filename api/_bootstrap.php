@@ -73,11 +73,15 @@ function requireMethod(string $method): void {
     if (!sameOrigin()) jsonResponse(403, ['error' => 'Solicitud no permitida.', 'code' => 'forbidden']);
 }
 
+function configuredDatabaseUrl(): string {
+    return trim((string)(getenv('DATABASE_URL') ?: getenv('POSTGRES_URL') ?: ''));
+}
+
 function database(): PDO {
     static $pdo;
     if ($pdo instanceof PDO) return $pdo;
 
-    $databaseUrl = trim((string)(getenv('DATABASE_URL') ?: getenv('POSTGRES_URL') ?: ''));
+    $databaseUrl = configuredDatabaseUrl();
     $options = [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -102,6 +106,12 @@ function database(): PDO {
         $pdo = new PDO($dsn, rawurldecode($parts['user']), rawurldecode($parts['pass'] ?? ''), $options);
         $migrationPath = dirname(__DIR__) . '/migrations/001_sell_module_postgres.sql';
     } else {
+        if (getenv('VERCEL')) {
+            jsonResponse(503, [
+                'error' => 'Falta conectar una base PostgreSQL al proyecto.',
+                'code' => 'database_configuration',
+            ]);
+        }
         if (!extension_loaded('pdo_sqlite')) jsonResponse(503, ['error' => 'El módulo necesita la extensión pdo_sqlite de PHP.', 'code' => 'database_configuration']);
         $directory = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'var';
         if (!is_dir($directory) && !mkdir($directory, 0770, true) && !is_dir($directory)) jsonResponse(500, ['error' => 'No se pudo preparar el almacenamiento.', 'code' => 'storage']);

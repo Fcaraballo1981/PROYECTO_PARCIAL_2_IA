@@ -76,7 +76,21 @@ if (!function_exists('curl_init')) {
     respond(503, ['error' => 'El servidor no tiene disponible la conexión segura requerida.', 'code' => 'unavailable']);
 }
 
-startSecureSession('gabinete_chat', 'Lax');
+if (configuredDatabaseUrl() !== '') {
+    startSecureSession('gabinete_chat', 'Lax');
+} else {
+    // El chat no guarda datos del negocio. Puede funcionar antes de conectar Neon
+    // usando el único directorio escribible de una Function de Vercel.
+    session_name('gabinete_chat');
+    session_save_path(sys_get_temp_dir());
+    session_set_cookie_params([
+        'httponly' => true,
+        'secure' => requestIsHttps(),
+        'samesite' => 'Lax',
+        'path' => '/',
+    ]);
+    session_start();
+}
 $now = time();
 $recentRequests = array_values(array_filter($_SESSION['chat_requests'] ?? [], static fn($time) => is_int($time) && $time > $now - 60));
 if (count($recentRequests) >= 20) {
