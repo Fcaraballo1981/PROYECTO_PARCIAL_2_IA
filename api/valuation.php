@@ -113,15 +113,17 @@ try {
         $detail = 'Solicitud recibida desde la web.';
     }
 
-    $imageStatement = $pdo->prepare(
-        'INSERT INTO watch_images(submission_id, original_name, mime_type, byte_size, image_data, created_at) VALUES(?, ?, ?, ?, ?, ?)'
+    $postgresImages = databaseDriver() === 'pgsql';
+    $imageStatement = $pdo->prepare($postgresImages
+        ? "INSERT INTO watch_images(submission_id, original_name, mime_type, byte_size, image_data, created_at) VALUES(?, ?, ?, ?, decode(?, 'base64'), ?)"
+        : 'INSERT INTO watch_images(submission_id, original_name, mime_type, byte_size, image_data, created_at) VALUES(?, ?, ?, ?, ?, ?)'
     );
     foreach ($validFiles as $file) {
         $imageStatement->bindValue(1, $submissionId, PDO::PARAM_INT);
         $imageStatement->bindValue(2, $file['name']);
         $imageStatement->bindValue(3, $file['mime']);
         $imageStatement->bindValue(4, $file['size'], PDO::PARAM_INT);
-        $imageStatement->bindValue(5, $file['data'], PDO::PARAM_LOB);
+        $imageStatement->bindValue(5, $postgresImages ? base64_encode($file['data']) : $file['data'], $postgresImages ? PDO::PARAM_STR : PDO::PARAM_LOB);
         $imageStatement->bindValue(6, $now);
         $imageStatement->execute();
     }
