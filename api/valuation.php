@@ -9,6 +9,7 @@ rateLimit('valuation', 4, 3600);
 releaseSession();
 
 try {
+    $stage = 'validacion';
     if (trim((string)($_POST['website'] ?? '')) !== '') {
         jsonResponse(400, ['error' => 'No pudimos validar la solicitud.', 'code' => 'spam']);
     }
@@ -55,10 +56,12 @@ try {
     }
 
     $validFiles = validateValuationImages(normalizedFiles('photos'));
+    $stage = 'conexion';
     $pdo = database();
     $now = nowIso();
     $token = randomToken();
     $pdo->beginTransaction();
+    $stage = 'datos';
 
     $existingId = filter_var($_POST['submission_id'] ?? null, FILTER_VALIDATE_INT);
     $existingToken = (string)($_POST['submission_token'] ?? '');
@@ -113,6 +116,7 @@ try {
         $detail = 'Solicitud recibida desde la web.';
     }
 
+    $stage = 'imagenes';
     $postgresImages = databaseDriver() === 'pgsql';
     $imageStatement = $pdo->prepare($postgresImages
         ? "INSERT INTO watch_images(submission_id, original_name, mime_type, byte_size, image_data, created_at) VALUES(?, ?, ?, ?, decode(?, 'base64'), ?)"
@@ -127,9 +131,11 @@ try {
         $imageStatement->bindValue(6, $now);
         $imageStatement->execute();
     }
+    $stage = 'historial';
     $pdo->prepare(
         'INSERT INTO submission_history(submission_id, event_type, detail, created_at) VALUES(?, ?, ?, ?)'
     )->execute([$submissionId, $event, $detail, $now]);
+    $stage = 'commit';
     $pdo->commit();
 
     try {
@@ -158,7 +164,7 @@ try {
     jsonResponse(422, ['error' => $exception->getMessage(), 'code' => 'validation']);
 } catch (Throwable $exception) {
     if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
-    error_log('[Watch valuation] ' . $exception->getMessage());
+    error_log('[Watch valuation][' . ($stage ?? 'inicio') . '] ' . $exception->getMessage());
     jsonResponse(500, ['error' => 'No pudimos guardar la solicitud. No se creó ninguna reserva.', 'code' => 'server']);
 }
 
