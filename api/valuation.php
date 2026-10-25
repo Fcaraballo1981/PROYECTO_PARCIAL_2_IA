@@ -176,7 +176,7 @@ function validateValuationImages(array $files): array
         $size = (int)$file['size'];
         $totalBytes += $size;
         if ($size < 1 || $size > MAX_IMAGE_BYTES || $totalBytes > MAX_TOTAL_IMAGE_BYTES) {
-            throw new InvalidArgumentException('Cada foto y el conjunto pueden pesar hasta 4 MB.');
+            throw new InvalidArgumentException('Cada foto y el conjunto pueden pesar hasta 3,2 MB.');
         }
         $mime = $finfo->file($file['tmp_name']);
         if (!in_array($mime, ['image/jpeg', 'image/png'], true) || @getimagesize($file['tmp_name']) === false) {
@@ -279,13 +279,17 @@ function requestVisualAnalysis(array $fields, array $files, string $apiKey, stri
         'accesorios' => isset($fields['has_accessories']),
         'observaciones' => $fields['notes'] ?? '',
     ];
-    $input = [[
-        'type' => 'text',
+    $parts = [[
         'text' => "Analizá esta solicitud. Datos declarados:\n" .
             json_encode($facts, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
     ]];
     foreach ($files as $file) {
-        $input[] = ['type' => 'image', 'mime_type' => $file['mime'], 'data' => base64_encode($file['data'])];
+        $parts[] = [
+            'inlineData' => [
+                'mimeType' => $file['mime'],
+                'data' => base64_encode($file['data']),
+            ],
+        ];
     }
 
     $instruction = <<<'PROMPT'
@@ -303,19 +307,22 @@ PROMPT;
         'required' => ['summary', 'identification', 'factors', 'missingInformation', 'warnings'],
     ];
     $body = [
-        'model' => $model,
-        'system_instruction' => $instruction,
-        'input' => $input,
-        'response_format' => [
-            'type' => 'text',
-            'mime_type' => 'application/json',
-            'schema' => $schema,
+        'systemInstruction' => [
+            'parts' => [['text' => $instruction]],
+        ],
+        'contents' => [[
+            'role' => 'user',
+            'parts' => $parts,
+        ]],
+        'generationConfig' => [
+            'responseMimeType' => 'application/json',
+            'responseSchema' => $schema,
         ],
     ];
     $response = geminiVisualRequest($model, $body, $apiKey);
     if ($response === null) return null;
 
-    $text = interactionOutputText($response);
+    $text = generateContentOutputText($response);
     $result = json_decode($text, true);
     if (!is_array($result)) return null;
     if (($result['identification'] ?? '') === '') $result['identification'] = null;
@@ -324,7 +331,12 @@ PROMPT;
 
 function geminiVisualRequest(string $model, array $body, string $apiKey): ?array
 {
-    $url = 'https://generativelanguage.googleapis.com/v1beta/interactions';
+    $model = preg_replace('#^models/#', '', trim($model));
+    if (!is_string($model) || !preg_match('/^[A-Za-z0-9._-]+$/', $model)) {
+        error_log('[Gemini visual] GEMINI_MODEL no es válido.');
+        return null;
+    }
+    $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($model) . ':generateContent';
     $handle = curl_init($url);
     curl_setopt_array($handle, [
         CURLOPT_POST => true,
@@ -335,7 +347,6 @@ function geminiVisualRequest(string $model, array $body, string $apiKey): ?array
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
             'Accept: application/json',
-            'Api-Revision: 2026-05-20',
             'x-goog-api-key: ' . $apiKey,
         ],
         CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
@@ -355,20 +366,23 @@ function geminiVisualRequest(string $model, array $body, string $apiKey): ?array
     return is_array($decoded) ? $decoded : null;
 }
 
-function interactionOutputText(array $response): string
+function generateContentOutputText(array $response): string
 {
     $text = '';
-    $steps = $response['steps'] ?? [];
-    if (is_array($steps)) {
-        foreach ($steps as $step) {
-            if (!is_array($step) || ($step['type'] ?? '') !== 'model_output' || !is_array($step['content'] ?? null)) continue;
-            $candidate = implode('', array_map(
-                static fn($part) => is_array($part) && ($part['type'] ?? '') === 'text' ? (string)($part['text'] ?? '') : '',
-                $step['content']
+    $candidates = $response['candidates'] ?? [];
+    if (is_array($candidates)) {
+        foreach ($candidates as $candidate) {
+            $parts = is_array($candidate) ? ($candidate['content']['parts'] ?? []) : [];
+            if (!is_array($parts)) continue;
+            $candidateText = implode('', array_map(
+                static fn($part) => is_array($part) ? (string)($part['text'] ?? '') : '',
+                $parts
             ));
-            if (trim($candidate) !== '') $text = trim($candidate);
+            if (trim($candidateText) !== '') {
+                $text = trim($candidateText);
+                break;
+            }
         }
     }
-    if ($text === '' && is_string($response['output_text'] ?? null)) $text = trim($response['output_text']);
     return $text;
 }

@@ -34,8 +34,8 @@ loadDotEnv(dirname(__DIR__) . DIRECTORY_SEPARATOR . '.env');
 
 const APP_TIMEZONE = 'America/Montevideo';
 // Vercel Functions accept request bodies up to 4.5 MB, including multipart overhead.
-const MAX_IMAGE_BYTES = 4000000;
-const MAX_TOTAL_IMAGE_BYTES = 4000000;
+const MAX_IMAGE_BYTES = 3200000;
+const MAX_TOTAL_IMAGE_BYTES = 3200000;
 const MAX_IMAGES = 8;
 
 date_default_timezone_set(APP_TIMEZONE);
@@ -74,7 +74,14 @@ function requireMethod(string $method): void {
 }
 
 function configuredDatabaseUrl(): string {
-    return trim((string)(getenv('DATABASE_URL') ?: getenv('POSTGRES_URL') ?: ''));
+    return trim((string)(
+        getenv('DATABASE_URL')
+        ?: getenv('POSTGRES_URL')
+        ?: getenv('NEON_URL')
+        ?: getenv('NEON_DATABASE_URL')
+        ?: getenv('NEON_POSTGRES_URL')
+        ?: ''
+    ));
 }
 
 function database(): PDO {
@@ -96,13 +103,22 @@ function database(): PDO {
         }
         parse_str($parts['query'] ?? '', $query);
         $sslMode = preg_replace('/[^a-z-]/', '', (string)($query['sslmode'] ?? 'require')) ?: 'require';
+        $host = (string)$parts['host'];
         $dsn = sprintf(
             'pgsql:host=%s;port=%d;dbname=%s;sslmode=%s',
-            $parts['host'],
+            $host,
             (int)($parts['port'] ?? 5432),
             ltrim($parts['path'], '/'),
             $sslMode
         );
+        // The Vercel PHP runtime can use an older libpq build without TLS SNI.
+        // Neon accepts the compute ID as a startup option in that situation.
+        if (str_ends_with(strtolower($host), '.neon.tech')) {
+            $endpointId = explode('.', $host, 2)[0];
+            if (preg_match('/^ep-[a-z0-9-]+$/i', $endpointId)) {
+                $dsn .= ';options=endpoint=' . $endpointId;
+            }
+        }
         $pdo = new PDO($dsn, rawurldecode($parts['user']), rawurldecode($parts['pass'] ?? ''), $options);
         $migrationPath = dirname(__DIR__) . '/migrations/001_sell_module_postgres.sql';
     } else {

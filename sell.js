@@ -3,10 +3,12 @@
 
   const MAX_FILES = 8;
   const MAX_SOURCE_FILE_BYTES = 25_000_000;
-  const TARGET_FILE_BYTES = 450_000;
+  const TARGET_FILE_BYTES = 350_000;
   const MAX_IMAGE_DIMENSION = 1600;
-  const MAX_TOTAL_BYTES = 4_000_000;
-  const VALID_IMAGE_TYPES = new Set(['image/jpeg', 'image/png']);
+  // Vercel cuenta también los campos y separadores de multipart en el límite del request.
+  const MAX_TOTAL_BYTES = 3_200_000;
+  const VALID_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
+  const PASSTHROUGH_IMAGE_TYPES = new Set(['image/jpeg', 'image/png']);
 
   const form = document.getElementById('watch-sale-form');
   if (!form) return;
@@ -118,7 +120,7 @@
 
   async function optimizeImage(file) {
     const key = sourceKey(file);
-    if (file.size <= TARGET_FILE_BYTES) return rememberSource(file, key);
+    if (file.size <= TARGET_FILE_BYTES && PASSTHROUGH_IMAGE_TYPES.has(file.type)) return rememberSource(file, key);
 
     const image = await decodeImage(file);
     const originalWidth = image.naturalWidth || image.width;
@@ -224,7 +226,7 @@
         break;
       }
       if (!VALID_IMAGE_TYPES.has(file.type) || file.size < 1 || file.size > MAX_SOURCE_FILE_BYTES) {
-        showFileError(`${file.name} no es una imagen JPG o PNG válida, o supera 25 MB.`);
+        showFileError(`${file.name} no es una imagen JPG, PNG, WEBP o HEIC válida, o supera 25 MB.`);
         continue;
       }
       const key = sourceKey(file);
@@ -239,7 +241,7 @@
         continue;
       }
       if (files.reduce((total, item) => total + item.size, 0) + optimized.size > MAX_TOTAL_BYTES) {
-        showFileError('El conjunto de fotografías no puede superar 4 MB.');
+        showFileError('El conjunto de fotografías no puede superar 3,2 MB.');
         break;
       }
       files.push(optimized);
@@ -311,7 +313,12 @@
         headers: { Accept: 'application/json' }
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || 'No pudimos guardar la solicitud.');
+      if (!response.ok) {
+        const message = response.status === 413
+          ? 'Las fotografías todavía pesan demasiado para el servidor. Quitá alguna o probá con imágenes más pequeñas.'
+          : result.error || 'No pudimos guardar la solicitud.';
+        throw new Error(message);
+      }
       submission = result.submission;
       renderValuation(result.valuation);
       bookingButton.disabled = false;

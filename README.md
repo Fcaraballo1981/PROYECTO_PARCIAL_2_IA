@@ -26,7 +26,7 @@ La configuración local se guarda en `.env`, en la raíz del proyecto. El archiv
 
 - `GEMINI_API_KEY`: clave creada en [Google AI Studio](https://aistudio.google.com/app/apikey). Se usa únicamente en PHP.
 - `GEMINI_MODEL`: opcional; por defecto `gemini-3.5-flash-lite`.
-- `DATABASE_URL` o `POSTGRES_URL`: conexión PostgreSQL para producción. Si ambas faltan, el entorno local usa SQLite.
+- `DATABASE_URL`, `POSTGRES_URL`, `NEON_URL`, `NEON_DATABASE_URL` o `NEON_POSTGRES_URL`: conexión PostgreSQL para producción. Si faltan, el entorno local usa SQLite.
 - `ADMIN_USERNAME` y `ADMIN_PASSWORD`: habilitan la API administrativa; la contraseña debe tener al menos 12 caracteres. El repositorio no incluye actualmente una interfaz web para administrarla.
 
 No guardes secretos en JavaScript, archivos públicos ni el repositorio.
@@ -59,7 +59,7 @@ Las fotografías se descargaron de Wikimedia Commons y se alojan en `assets/`. S
 - Página pública en `vende-tu-reloj.html`, vinculada desde el menú principal.
 - Flujo de cuatro pasos con regreso sin pérdida de datos.
 - Validación cliente/servidor y consentimiento de tratamiento de datos.
-- Entre 1 y 8 imágenes JPG o PNG de hasta 25 MB de origen; el navegador las redimensiona y comprime automáticamente para mantener el envío por debajo del límite de Vercel Functions.
+- Entre 1 y 8 imágenes JPG, PNG, WEBP o HEIC de hasta 25 MB de origen; el navegador las convierte, redimensiona y comprime automáticamente para mantener el envío completo por debajo del límite de Vercel Functions.
 - Análisis multimodal con Gemini cuando hay credenciales.
 - La evaluación remota describe únicamente detalles visibles e inconsistencias posibles; no estima precios ni certifica autenticidad.
 - Agenda en `America/Montevideo`, configurada de lunes a viernes de 09:00 a 17:00, con bloqueo transaccional y códigos de reserva.
