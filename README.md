@@ -26,7 +26,7 @@ La configuración local se guarda en `.env`, en la raíz del proyecto. El archiv
 
 - `GEMINI_API_KEY`: clave creada en [Google AI Studio](https://aistudio.google.com/app/apikey). Se usa únicamente en PHP.
 - `GEMINI_MODEL`: opcional; por defecto `gemini-3.5-flash-lite`.
-- `DATABASE_URL`, `POSTGRES_URL`, `NEON_URL`, `NEON_DATABASE_URL` o `NEON_POSTGRES_URL`: conexión PostgreSQL para producción. Si faltan, el entorno local usa SQLite.
+- `DATABASE_URL_UNPOOLED` o `POSTGRES_URL_NON_POOLING`: conexión PostgreSQL directa preferida para producción; como alternativa se admiten `DATABASE_URL`, `POSTGRES_URL`, `NEON_URL`, `NEON_DATABASE_URL` y `NEON_POSTGRES_URL`. Si faltan, el entorno local usa SQLite.
 - `ADMIN_USERNAME` y `ADMIN_PASSWORD`: habilitan la API administrativa; la contraseña debe tener al menos 12 caracteres. El repositorio no incluye actualmente una interfaz web para administrarla.
 
 No guardes secretos en JavaScript, archivos públicos ni el repositorio.

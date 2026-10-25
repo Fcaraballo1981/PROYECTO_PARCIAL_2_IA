@@ -75,7 +75,9 @@ function requireMethod(string $method): void {
 
 function configuredDatabaseUrl(): string {
     return trim((string)(
-        getenv('DATABASE_URL')
+        getenv('DATABASE_URL_UNPOOLED')
+        ?: getenv('POSTGRES_URL_NON_POOLING')
+        ?: getenv('DATABASE_URL')
         ?: getenv('POSTGRES_URL')
         ?: getenv('NEON_URL')
         ?: getenv('NEON_DATABASE_URL')
